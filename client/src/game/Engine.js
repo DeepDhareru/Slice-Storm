@@ -1,6 +1,8 @@
 import Fruit from './Fruit';
+import FruitHalf from './FruitHalf';
 import Blade from './Blade';
 import { pickFruit } from './fruits';
+import { segmentHitsCircle } from './geometry';
 
 const rand = (a, b) => a + Math.random() * (b - a);
 
@@ -25,8 +27,13 @@ export default class Engine {
     this._fpsTimer = 0;
 
     this.fruits = [];
+    this.halves = [];
+    this.popups = [];
     this.spawnTimer = 0.3;
     this.blade = new Blade();
+
+    this.score = 0;
+    this.fruitsSliced = 0;
 
     this._loop = this._loop.bind(this);
     this._onResize = this.resize.bind(this);
@@ -71,7 +78,6 @@ export default class Engine {
     const hover = SLICE_ON_HOVER && e.pointerType === 'mouse';
     if (!this.blade.active && !hover) return;
 
-    // tez swipe mein browser beech ke points jod deta hai, taaki trail tootey nahi
     const list = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
     const events = list.length ? list : [e];
 
@@ -122,7 +128,10 @@ export default class Engine {
     this.canvas.removeEventListener('pointerleave', this._onPointerUp);
     this.canvas.removeEventListener('contextmenu', this._onContextMenu);
     this.fruits = [];
+    this.halves = [];
+    this.popups = [];
     this.blade.points = [];
+    this.blade.segments = [];
   }
 
   /* ---------- loop ---------- */
@@ -164,6 +173,46 @@ export default class Engine {
     this.fruits.push(new Fruit(type, r, x, y, vx, vy));
   }
 
+  sliceFruit(f, seg) {
+    const angle = Math.atan2(seg.y2 - seg.y1, seg.x2 - seg.x1);
+    // blade ke perpendicular direction, isi taraf dono hisse alag honge
+    const nx = -Math.sin(angle);
+    const ny = Math.cos(angle);
+    const push = f.r * 3;
+
+    for (const side of [0, 1]) {
+      const dir = side === 0 ? -1 : 1;
+      this.halves.push(
+        new FruitHalf(
+          f.type, f.r, f.x, f.y,
+          f.vx * 0.6 + nx * push * dir,
+          f.vy * 0.4 + ny * push * dir,
+          angle, side,
+          (Math.random() * 2 - 1) * 2 + dir * 2
+        )
+      );
+    }
+
+    this.score += f.type.score;
+    this.fruitsSliced++;
+    this.popups.push({ x: f.x, y: f.y, text: `+${f.type.score}`, life: 0.8 });
+  }
+
+  checkSlices() {
+    const segs = this.blade.takeSegments();
+    if (!segs.length) return;
+
+    const survivors = [];
+    for (const f of this.fruits) {
+      const hit = segs.find((s) =>
+        segmentHitsCircle(s.x1, s.y1, s.x2, s.y2, f.x, f.y, f.r)
+      );
+      if (hit) this.sliceFruit(f, hit);
+      else survivors.push(f);
+    }
+    this.fruits = survivors;
+  }
+
   update(dt) {
     this.spawnTimer -= dt;
     if (this.spawnTimer <= 0) {
@@ -174,6 +223,17 @@ export default class Engine {
 
     for (const f of this.fruits) f.update(dt, this.gravity);
     this.fruits = this.fruits.filter((f) => !f.isGone(this.height));
+
+    this.checkSlices();
+
+    for (const h of this.halves) h.update(dt, this.gravity);
+    this.halves = this.halves.filter((h) => !h.isGone(this.height));
+
+    for (const p of this.popups) {
+      p.life -= dt;
+      p.y -= 60 * dt;
+    }
+    this.popups = this.popups.filter((p) => p.life > 0);
 
     this.blade.update(dt);
   }
@@ -187,11 +247,29 @@ export default class Engine {
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, width, height);
 
+    for (const h of this.halves) h.draw(ctx);
     for (const f of this.fruits) f.draw(ctx);
-    this.blade.draw(ctx); // trail sabse upar
 
+    // +score popups
+    ctx.textAlign = 'center';
+    ctx.font = `bold ${Math.max(18, width * 0.03)}px sans-serif`;
+    for (const p of this.popups) {
+      ctx.globalAlpha = Math.min(1, p.life / 0.4);
+      ctx.fillStyle = '#ffe66d';
+      ctx.fillText(p.text, p.x, p.y);
+    }
+    ctx.globalAlpha = 1;
+
+    this.blade.draw(ctx);
+
+    // abhi ke liye simple score (Step 8 mein asli HUD banayenge)
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `bold ${Math.max(24, width * 0.045)}px sans-serif`;
+    ctx.fillText(String(this.score).padStart(6, '0'), width / 2, Math.max(36, width * 0.06));
+
+    ctx.textAlign = 'left';
     ctx.fillStyle = '#9ee493';
     ctx.font = '14px monospace';
-    ctx.fillText(`FPS: ${this.fps}  Fruits: ${this.fruits.length}`, 12, 22);
+    ctx.fillText(`FPS: ${this.fps}  Sliced: ${this.fruitsSliced}`, 12, 22);
   }
 }
