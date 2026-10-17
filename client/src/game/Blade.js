@@ -1,23 +1,38 @@
 export default class Blade {
   constructor() {
-    this.points = [];     // { x, y, age, brk } (purana pehle, naya baad mein)
+    this.points = [];     // { x, y, age, brk }
+    this.segments = [];   // is frame ki nayi lines, collision ke liye
     this.active = false;
-    this.maxAge = 0.25;   // trail kitni der mein gayab hoga (seconds)
+    this.maxAge = 0.25;
     this.maxPoints = 40;
   }
 
   begin(x, y) {
     this.active = true;
-    // brk = nayi swipe ki shuruaat, purani swipe se line nahi judegi
     this.points.push({ x, y, age: 0, brk: true });
   }
 
   move(x, y) {
     if (!this.active) return;
     const last = this.points[this.points.length - 1];
-    if (last && Math.hypot(x - last.x, y - last.y) < 2) return; // bahut chhote jhatke ignore
+
+    // ungli rukne se saare points gayab ho gaye the, to naye sire se shuru
+    if (!last) {
+      this.points.push({ x, y, age: 0, brk: true });
+      return;
+    }
+    if (Math.hypot(x - last.x, y - last.y) < 2) return;
+
+    this.segments.push({ x1: last.x, y1: last.y, x2: x, y2: y });
     this.points.push({ x, y, age: 0, brk: false });
     if (this.points.length > this.maxPoints) this.points.shift();
+  }
+
+  // Engine har frame mein nayi lines le jaata hai
+  takeSegments() {
+    const s = this.segments;
+    this.segments = [];
+    return s;
   }
 
   end() {
@@ -44,19 +59,19 @@ export default class Blade {
       const b = pts[i];
       if (b.brk) continue;
 
-      const life = 1 - (a.age + b.age) / 2 / this.maxAge; // 1 = bilkul naya
+      const life = 1 - (a.age + b.age) / 2 / this.maxAge;
       if (life <= 0) continue;
 
       ctx.globalAlpha = life;
 
-      ctx.strokeStyle = '#4de1ff';     // bahar ki glow
+      ctx.strokeStyle = '#4de1ff';
       ctx.lineWidth = 3 + life * 11;
       ctx.beginPath();
       ctx.moveTo(a.x, a.y);
       ctx.lineTo(b.x, b.y);
       ctx.stroke();
 
-      ctx.strokeStyle = '#ffffff';     // andar ki chamakti line
+      ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 1 + life * 4;
       ctx.beginPath();
       ctx.moveTo(a.x, a.y);
