@@ -1,6 +1,8 @@
-// kate hue fruit ka ek aadha hissa
+import { drawSprite } from './fruitArt';
+
+// kate hue fruit ka ek aadha hissa, andar ka design dikhata hai
 export default class FruitHalf {
-  constructor(type, r, x, y, vx, vy, angle, side, spin) {
+  constructor(type, r, x, y, vx, vy, angle, side, spin, interior) {
     this.type = type;
     this.r = r;
     this.x = x;
@@ -10,6 +12,7 @@ export default class FruitHalf {
     this.angle = angle; // is angle par kaat wali line local x-axis ke saath rahegi
     this.side = side;   // 0 = upar wala hissa, 1 = neeche wala
     this.spin = spin;
+    this.interior = interior;
   }
 
   update(dt, gravity) {
@@ -36,23 +39,22 @@ export default class FruitHalf {
     ctx.closePath();
     ctx.clip();
 
-    // chhilka
-    const g = ctx.createRadialGradient(-r * 0.35, -r * 0.35, r * 0.1, 0, 0, r);
-    g.addColorStop(0, this.type.color);
-    g.addColorStop(1, this.type.dark);
-    ctx.fillStyle = g;
+    drawSprite(ctx, this.interior);
+
+    // kinaron par halka andhera, taaki gol shape ka depth dikhe
+    const shade = ctx.createRadialGradient(0, 0, r * 0.55, 0, 0, r);
+    shade.addColorStop(0, 'rgba(0,0,0,0)');
+    shade.addColorStop(1, 'rgba(0,0,0,0.28)');
+    ctx.fillStyle = shade;
+    ctx.fillRect(-r, -r, r * 2, r * 2);
+
+    // kate hue kinare par geeli chamak
+    ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
-    ctx.arc(0, 0, r, 0, Math.PI * 2);
-    ctx.fill();
-
-    // kate hue hisse ka andar wala gooda
-    const thick = r * 0.2;
-    const y0 = this.side === 0 ? -thick : 0;
-    ctx.fillStyle = this.type.flesh;
-    ctx.fillRect(-r, y0, r * 2, thick);
-
-    ctx.fillStyle = 'rgba(255,255,255,0.45)';
-    ctx.fillRect(-r * 0.8, y0 + thick * 0.2, r * 1.6, thick * 0.3);
+    ctx.moveTo(-r, 0);
+    ctx.lineTo(r, 0);
+    ctx.stroke();
 
     ctx.restore();
   }

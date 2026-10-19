@@ -3,6 +3,7 @@ import FruitHalf from './FruitHalf';
 import Blade from './Blade';
 import { pickFruit } from './fruits';
 import { segmentHitsCircle } from './geometry';
+import { makeInteriorSprite } from './fruitArt';
 
 const rand = (a, b) => a + Math.random() * (b - a);
 
@@ -180,6 +181,9 @@ export default class Engine {
     const ny = Math.cos(angle);
     const push = f.r * 3;
 
+    // dono hisson ka andar ka design ek hi sprite se (ek baar draw)
+    const interior = makeInteriorSprite(f.type.name, f.r, f.seed);
+
     for (const side of [0, 1]) {
       const dir = side === 0 ? -1 : 1;
       this.halves.push(
@@ -188,7 +192,8 @@ export default class Engine {
           f.vx * 0.6 + nx * push * dir,
           f.vy * 0.4 + ny * push * dir,
           angle, side,
-          (Math.random() * 2 - 1) * 2 + dir * 2
+          (Math.random() * 2 - 1) * 2 + dir * 2,
+          interior
         )
       );
     }
